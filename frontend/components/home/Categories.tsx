@@ -1,110 +1,158 @@
+import Link from "next/link";
 import {
   Baby,
+  Beef,
   Coffee,
-  Cookie,
   Droplets,
+  House,
   Milk,
   Package,
+  ShieldCheck,
   Sparkles,
   Wheat,
 } from "lucide-react";
 
 const categories = [
   {
-    name: "Staples",
-    description: "Rice, flour & grains",
+    name: "Rice & Atta",
+    description: "Rice, flour & staples",
     icon: Wheat,
+    href: "/categories",
   },
   {
-    name: "Groceries",
-    description: "Everyday essentials",
+    name: "Dal & Pulses",
+    description: "Everyday dals & pulses",
     icon: Package,
+    href: "/categories",
+  },
+  {
+    name: "Oil & Ghee",
+    description: "Cooking oils & ghee",
+    icon: Droplets,
+    href: "/categories",
+  },
+  {
+    name: "Salt & Spices",
+    description: "Salt, spices & masalas",
+    icon: Sparkles,
+    href: "/categories",
+  },
+  {
+    name: "Tea & Coffee",
+    description: "Tea, coffee & drinks",
+    icon: Coffee,
+    href: "/categories",
+  },
+  {
+    name: "Dairy & Breakfast",
+    description: "Breakfast essentials",
+    icon: Milk,
+    href: "/categories",
+  },
+  {
+    name: "Snacks & Biscuits",
+    description: "Snacks & bakery items",
+    icon: Beef,
+    href: "/categories",
   },
   {
     name: "Household",
-    description: "Home care essentials",
-    icon: Sparkles,
-  },
-  {
-    name: "Snacks",
-    description: "Tasty everyday treats",
-    icon: Cookie,
-  },
-  {
-    name: "Beverages",
-    description: "Drinks & refreshments",
-    icon: Coffee,
+    description: "Cleaning & home needs",
+    icon: House,
+    href: "/categories",
   },
   {
     name: "Personal Care",
-    description: "Daily care products",
-    icon: Droplets,
+    description: "Daily care essentials",
+    icon: ShieldCheck,
+    href: "/categories",
   },
   {
     name: "Baby Care",
-    description: "Essentials for little ones",
+    description: "Baby essentials",
     icon: Baby,
-  },
-  {
-    name: "Dairy",
-    description: "Milk & dairy products",
-    icon: Milk,
+    href: "/categories",
   },
 ];
 
 export default function Categories() {
   return (
-    <section
-      id="categories"
-      className="bg-white px-4 py-16 sm:px-6 sm:py-20 lg:px-8"
-    >
+    <section className="bg-white px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
       <div className="mx-auto max-w-7xl">
         {/* Section heading */}
-        <div className="max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-green-700">
-            Browse our store
-          </p>
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-green-700">
+              Shop essentials
+            </p>
 
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-green-950 sm:text-4xl">
-            Shop by category
-          </h2>
+            <h2 className="mt-1 text-2xl font-bold tracking-tight text-green-950 sm:text-3xl">
+              Shop by Category
+            </h2>
 
-          <p className="mt-4 text-base leading-7 text-slate-600">
-            Find the everyday essentials you need, organized to make your
-            shopping simple and convenient.
-          </p>
+            <p className="mt-2 max-w-xl text-sm text-slate-500 sm:text-base">
+              Find everyday groceries and household essentials in one place.
+            </p>
+          </div>
+
+          <Link
+            href="/categories"
+            className="hidden shrink-0 text-sm font-semibold text-green-800 transition hover:text-green-950 sm:inline-flex"
+          >
+            View all
+            <span className="ml-1" aria-hidden="true">
+              →
+            </span>
+          </Link>
         </div>
 
-        {/* Category grid */}
-        <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {categories.map((category) => {
-            const Icon = category.icon;
+        {/* Category strip */}
+        <div className="relative">
+          <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-none sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible lg:grid-cols-5">
+            {categories.map((category) => {
+              const Icon = category.icon;
 
-            return (
-              <a
-                key={category.name}
-                href="#products"
-                className="group rounded-2xl border border-slate-100 bg-[#f8fbf8] p-5 transition-all duration-200 hover:-translate-y-1 hover:border-green-100 hover:bg-green-50 hover:shadow-lg hover:shadow-green-900/5 sm:p-6"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-100 text-green-700 transition-colors duration-200 group-hover:bg-green-700 group-hover:text-white">
-                  <Icon size={23} strokeWidth={1.8} />
-                </div>
+              return (
+                <Link
+                  key={category.name}
+                  href={category.href}
+                  className="group min-w-[180px] rounded-2xl border border-green-100 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-green-300 hover:shadow-md sm:min-w-0"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-950 text-white transition duration-200 group-hover:bg-green-800">
+                    <Icon
+                      size={24}
+                      strokeWidth={1.8}
+                      aria-hidden="true"
+                    />
+                  </div>
 
-                <h3 className="mt-5 text-base font-bold text-green-950">
-                  {category.name}
-                </h3>
+                  <h3 className="mt-4 text-sm font-bold text-green-950">
+                    {category.name}
+                  </h3>
 
-                <p className="mt-1.5 text-sm leading-5 text-slate-500">
-                  {category.description}
-                </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    {category.description}
+                  </p>
 
-                <span className="mt-4 inline-block text-xs font-semibold text-green-700 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                  Browse category →
-                </span>
-              </a>
-            );
-          })}
+                  <div className="mt-3 text-xs font-semibold text-green-700 transition group-hover:text-green-950">
+                    Explore →
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </div>
+
+        {/* Mobile view-all */}
+        <Link
+          href="/categories"
+          className="mt-4 flex w-full items-center justify-center rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800 transition hover:bg-green-100 sm:hidden"
+        >
+          View all categories
+          <span className="ml-1" aria-hidden="true">
+            →
+          </span>
+        </Link>
       </div>
     </section>
   );

@@ -1,108 +1,155 @@
-"use client";
-
-import { motion } from "framer-motion";
-import { ArrowRight, BadgePercent, ShoppingBag, Sparkles } from "lucide-react";
+import Link from "next/link";
+import {
+  ArrowRight,
+  
+  ShoppingBag,
+  Sparkles,
+} from "lucide-react";
 
 const offers = [
   {
-    title: "Daily Grocery Deals",
+    eyebrow: "Everyday Value",
+    title: "Everything you need for your daily shopping.",
     description:
-      "Save on everyday essentials, groceries and household products.",
-    badge: "Everyday Savings",
+      "Explore groceries, household essentials and everyday products available at Sangameshwara.",
     icon: ShoppingBag,
-    buttonText: "Shop groceries",
+    href: "/products",
+    featured: true,
   },
   {
-    title: "Special Offers",
+    eyebrow: "Store Specials",
+    title: "Discover products worth adding to your basket.",
     description:
-      "Discover selected products and seasonal offers available at our store.",
-    badge: "Limited Offers",
-    icon: BadgePercent,
-    buttonText: "View offers",
+      "Browse our growing catalogue and discover products for your home and family.",
+    icon: Sparkles,
+    href: "/products",
+    featured: false,
   },
 ];
 
 export default function Offers() {
   return (
-    <section
-      id="offers"
-      className="bg-[#f8fbf8] px-4 py-16 sm:px-6 sm:py-20 lg:px-8"
-    >
+    <section className="bg-slate-50 px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
       <div className="mx-auto max-w-7xl">
-        {/* Section heading */}
-        <div className="mb-10 max-w-2xl">
-          <p className="mb-3 text-sm font-bold uppercase tracking-[0.22em] text-green-700">
-            Save more while you shop
-          </p>
+        {/* Heading */}
+        <div className="mb-7 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-green-700">
+              Shop smarter
+            </p>
 
-          <h2 className="text-3xl font-bold tracking-tight text-green-950 sm:text-4xl">
-            Offers made for everyday shopping.
-          </h2>
+            <h2 className="mt-1 text-2xl font-bold tracking-tight text-green-950 sm:text-3xl">
+              Offers & Deals
+            </h2>
 
-          <p className="mt-4 text-base leading-7 text-slate-600 sm:text-lg">
-            Check out our latest offers and discover more value on products
-            you already shop for.
-          </p>
+            <p className="mt-2 max-w-xl text-sm text-slate-500 sm:text-base">
+              Discover everyday value and products selected for your shopping
+              needs.
+            </p>
+          </div>
+
+          <Link
+            href="/offers"
+            className="hidden shrink-0 items-center gap-1 text-sm font-semibold text-green-800 transition hover:text-green-950 sm:inline-flex"
+          >
+            View all
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
         </div>
 
         {/* Offer cards */}
-        <div className="grid gap-5 lg:grid-cols-2">
-          {offers.map((offer, index) => {
+        <div className="grid gap-4 md:grid-cols-2">
+          {offers.map((offer) => {
             const Icon = offer.icon;
 
             return (
-              <motion.article
-                key={offer.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.2 }}
-                transition={{
-                  duration: 0.5,
-                  delay: index * 0.1,
-                }}
-                whileHover={{ y: -4 }}
-                className="group relative overflow-hidden rounded-3xl border border-green-100 bg-white p-6 shadow-sm transition-shadow duration-300 hover:shadow-xl sm:p-8"
+              <article
+                key={offer.eyebrow}
+                className={`group relative overflow-hidden rounded-3xl ${
+                  offer.featured
+                    ? "bg-green-950"
+                    : "border border-green-100 bg-white"
+                }`}
               >
                 {/* Decorative background */}
-                <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-green-50" />
+                <div
+                  className={`pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full ${
+                    offer.featured
+                      ? "bg-green-700/30"
+                      : "bg-green-100/70"
+                  } blur-2xl`}
+                  aria-hidden="true"
+                />
 
-                <div className="relative">
+                <div className="relative p-6 sm:p-8">
                   {/* Icon */}
-                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-100 text-green-700">
-                    <Icon size={26} strokeWidth={2} />
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
+                      offer.featured
+                        ? "bg-green-800 text-green-100"
+                        : "bg-green-100 text-green-800"
+                    }`}
+                  >
+                    <Icon size={23} aria-hidden="true" />
                   </div>
 
-                  {/* Badge */}
-                  <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-800">
-                    <Sparkles size={13} />
-                    {offer.badge}
-                  </span>
-
                   {/* Content */}
-                  <h3 className="mt-5 text-2xl font-bold text-green-950">
+                  <p
+                    className={`mt-6 text-xs font-bold uppercase tracking-[0.18em] ${
+                      offer.featured
+                        ? "text-green-300"
+                        : "text-green-700"
+                    }`}
+                  >
+                    {offer.eyebrow}
+                  </p>
+
+                  <h3
+                    className={`mt-2 max-w-lg text-2xl font-bold tracking-tight sm:text-3xl ${
+                      offer.featured
+                        ? "text-white"
+                        : "text-green-950"
+                    }`}
+                  >
                     {offer.title}
                   </h3>
 
-                  <p className="mt-3 max-w-lg text-sm leading-6 text-slate-600 sm:text-base">
+                  <p
+                    className={`mt-3 max-w-lg text-sm leading-6 ${
+                      offer.featured
+                        ? "text-green-100"
+                        : "text-slate-600"
+                    }`}
+                  >
                     {offer.description}
                   </p>
 
-                  {/* Button */}
-                  <button
-                    type="button"
-                    className="mt-7 inline-flex items-center gap-2 rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-green-800"
+                  {/* CTA */}
+                  <Link
+                    href={offer.href}
+                    className={`mt-6 inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${
+                      offer.featured
+                        ? "bg-white text-green-950 hover:bg-green-50"
+                        : "bg-green-800 text-white hover:bg-green-950"
+                    }`}
                   >
-                    {offer.buttonText}
-                    <ArrowRight
-                      size={17}
-                      className="transition-transform duration-200 group-hover:translate-x-1"
-                    />
-                  </button>
+                    Explore Products
+                    <ArrowRight size={17} aria-hidden="true" />
+                  </Link>
                 </div>
-              </motion.article>
+              </article>
             );
           })}
         </div>
+
+        {/* Mobile CTA */}
+        <Link
+          href="/offers"
+          className="mt-4 flex w-full items-center justify-center gap-1 rounded-xl border border-green-200 bg-white px-4 py-3 text-sm font-semibold text-green-800 transition hover:bg-green-50 sm:hidden"
+        >
+          View all offers
+          <ArrowRight size={16} aria-hidden="true" />
+        </Link>
       </div>
     </section>
   );
