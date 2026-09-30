@@ -20,10 +20,32 @@ export function getUserId(event: APIGatewayProxyEventV2WithJWTAuthorizer): strin
   return getClaims(event).sub;
 }
 
+/**
+ * Normalizes the Cognito groups claim into a clean string array.
+ *
+ * The shape of `cognito:groups` differs by token source:
+ *  - A real decoded JWT gives a JSON array: ["ADMINS"].
+ *  - API Gateway's HTTP API JWT authorizer flattens it into a single
+ *    bracketed string: "[ADMINS]" or "[ADMINS CUSTOMERS]" (space-separated,
+ *    no quotes, no commas).
+ * This handles all of those so group checks work regardless of source.
+ */
 function getGroups(claims: JwtClaims): string[] {
   const groups = claims["cognito:groups"];
   if (!groups) return [];
-  return Array.isArray(groups) ? groups : [groups];
+
+  if (Array.isArray(groups)) {
+    return groups;
+  }
+
+  if (typeof groups === "string") {
+    // Strip surrounding brackets if present, then split on whitespace/commas.
+    const inner = groups.replace(/^\[/, "").replace(/\]$/, "").trim();
+    if (!inner) return [];
+    return inner.split(/[\s,]+/).filter(Boolean);
+  }
+
+  return [];
 }
 
 export function isAdmin(claims: JwtClaims): boolean {
