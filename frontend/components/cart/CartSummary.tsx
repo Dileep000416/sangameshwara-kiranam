@@ -4,12 +4,20 @@ import Link from "next/link";
 import { ArrowRight, ShoppingBag, Trash2 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 
+const FREE_DELIVERY_THRESHOLD = 500;
+const DELIVERY_FEE = 30;
+
 export default function CartSummary() {
   const {
     cartCount,
     cartTotal,
     clearCart,
   } = useCart();
+
+  // Estimate only — the backend recalculates the authoritative delivery fee
+  // and total from scratch when the order is created.
+  const deliveryFee = cartTotal === 0 ? 0 : cartTotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
+  const estimatedTotal = cartTotal + deliveryFee;
 
   return (
     <aside className="rounded-3xl border border-green-100 bg-green-50/60 p-5 sm:p-6">
@@ -48,9 +56,15 @@ export default function CartSummary() {
           </span>
 
           <span className="font-semibold text-green-700">
-            Calculated later
+            {deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}
           </span>
         </div>
+
+        {cartTotal > 0 && cartTotal < FREE_DELIVERY_THRESHOLD && (
+          <p className="text-xs text-slate-500">
+            Add ₹{FREE_DELIVERY_THRESHOLD - cartTotal} more for free delivery.
+          </p>
+        )}
       </div>
 
       {/* Total */}
@@ -58,11 +72,11 @@ export default function CartSummary() {
         <div className="flex items-end justify-between">
           <div>
             <p className="text-xs font-medium text-slate-500">
-              Cart total
+              Estimated total
             </p>
 
             <p className="mt-1 text-2xl font-extrabold tracking-tight text-green-950">
-              ₹{cartTotal}
+              ₹{estimatedTotal}
             </p>
           </div>
         </div>
@@ -76,16 +90,14 @@ export default function CartSummary() {
         Continue shopping
       </Link>
 
-      {/* Future order flow */}
-      <button
-        type="button"
-        disabled
-        className="mt-3 flex h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-green-900 px-4 text-sm font-bold text-white opacity-50"
-        title="Order flow will be enabled in a later step"
+      {/* Checkout */}
+      <Link
+        href="/checkout"
+        className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-900 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-green-950"
       >
-        Proceed to order
+        Proceed to checkout
         <ArrowRight size={17} aria-hidden="true" />
-      </button>
+      </Link>
 
       {/* Clear cart */}
       <button

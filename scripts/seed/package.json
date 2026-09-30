@@ -1,0 +1,18 @@
+{
+  "name": "@sangameshwara/seed",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Seeds DynamoDB with demo categories and 100+ grocery products.",
+  "scripts": {
+    "seed": "ts-node --transpile-only seed.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1142.0",
+    "@aws-sdk/lib-dynamodb": "3.1142.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.9",
+    "ts-node": "10.9.2",
+    "typescript": "5.6.3"
+  }
+}

@@ -1,8 +1,15 @@
-import { ShoppingCart } from "lucide-react";
-import { featuredProducts } from "@/data/products";
+"use client";
+
+import Link from "next/link";
+import ProductCard from "@/components/products/ProductCard";
+import { ProductGridSkeleton } from "@/components/ui/Skeletons";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useProducts } from "@/hooks/useProducts";
+import { ShoppingBag } from "lucide-react";
 
 export default function FeaturedProducts() {
-  
+  const { products, isLoading, error, refetch } = useProducts({ featured: true, page: 1 });
 
   return (
     <section id="products" className="bg-white px-4 py-16 sm:px-6 lg:px-8">
@@ -24,52 +31,39 @@ export default function FeaturedProducts() {
             </p>
           </div>
 
-          <button
-            type="button"
+          <Link
+            href="/products"
             className="w-fit rounded-xl border border-green-200 px-5 py-3 text-sm font-semibold text-green-800 transition hover:border-green-600 hover:bg-green-50"
           >
             View all products
-          </button>
+          </Link>
         </div>
 
-        {/* Product grid */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {featuredProducts.map((product) => (
-            <article
-              key={product.id}
-              className="group rounded-2xl border border-slate-100 bg-white p-3 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg"
-            >
-              {/* Product image placeholder */}
-              <div className="flex aspect-square items-center justify-center rounded-xl bg-green-50">
-                <span className="text-4xl">🛒</span>
-              </div>
-
-              <div className="pt-4">
-                <p className="text-xs font-medium text-green-700">
-                  {product.category}
-                </p>
-
-                <h3 className="mt-1 min-h-10 text-sm font-bold leading-5 text-slate-900">
-                  {product.name}
-                </h3>
-
-                <div className="mt-3 flex items-center justify-between gap-2">
-                  <span className="text-base font-bold text-green-800">
-                    ₹{product.price}
-                  </span>
-
-                  <button
-                    type="button"
-                    aria-label={`Add ${product.name} to cart`}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-700 text-white transition hover:bg-green-800"
-                  >
-                    <ShoppingCart size={16} />
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+        {isLoading ? (
+          <ProductGridSkeleton count={8} />
+        ) : error ? (
+          <ErrorState message={error} onRetry={refetch} />
+        ) : products.length === 0 ? (
+          <EmptyState
+            icon={ShoppingBag}
+            title="No featured products yet"
+            description="Check back soon, or browse the full catalog."
+            action={
+              <Link
+                href="/products"
+                className="inline-flex rounded-xl bg-green-800 px-5 py-3 text-sm font-bold text-white transition hover:bg-green-950"
+              >
+                Browse all products
+              </Link>
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {products.slice(0, 8).map((product) => (
+              <ProductCard key={product.productId} product={product} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

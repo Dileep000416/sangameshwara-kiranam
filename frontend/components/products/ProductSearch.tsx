@@ -1,26 +1,36 @@
-
 "use client";
 
 import { useState } from "react";
 import { Search } from "lucide-react";
 import ProductCard from "@/components/products/ProductCard";
-import { featuredProducts } from "@/data/products";
+import { ProductGridSkeleton } from "@/components/ui/Skeletons";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
-export default function ProductSearch() {
-  const [searchQuery, setSearchQuery] = useState("");
+interface ProductSearchProps {
+  initialCategoryId?: string;
+  initialSearch?: string;
+}
 
-  const filteredProducts = featuredProducts.filter((product) =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+export default function ProductSearch({ initialCategoryId, initialSearch }: ProductSearchProps) {
+  const [searchInput, setSearchInput] = useState(initialSearch ?? "");
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(initialCategoryId);
+
+  const debouncedSearch = useDebouncedValue(searchInput, 350);
+  const { categories } = useCategories();
+  const { products, isLoading, error, refetch } = useProducts({
+    search: debouncedSearch || undefined,
+    category: selectedCategory,
+  });
 
   return (
     <>
       {/* Search UI */}
       <div className="mb-8 rounded-2xl border border-green-100 bg-green-50/60 p-4 sm:p-5">
-        <label
-          htmlFor="product-search"
-          className="mb-2 block text-sm font-semibold text-green-950"
-        >
+        <label htmlFor="product-search" className="mb-2 block text-sm font-semibold text-green-950">
           Search products
         </label>
 
@@ -35,96 +45,82 @@ export default function ProductSearch() {
           <input
             id="product-search"
             type="search"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
             placeholder="Search for rice, atta, salt..."
             className="h-12 w-full rounded-xl border border-green-200 bg-white pl-12 pr-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-green-600 focus:ring-4 focus:ring-green-100"
           />
         </div>
       </div>
 
-      {/* Category UI */}
-      <div className="mb-8">
-        <p className="mb-3 text-sm font-semibold text-green-950">
-          Browse by category
-        </p>
+      {/* Category filter chips */}
+      {categories.length > 0 && (
+        <div className="mb-8">
+          <p className="mb-3 text-sm font-semibold text-green-950">Browse by category</p>
 
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          <button
-            type="button"
-            className="whitespace-nowrap rounded-full bg-green-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-800"
-          >
-            All
-          </button>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCategory(undefined)}
+              className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition ${
+                !selectedCategory
+                  ? "bg-green-700 text-white hover:bg-green-800"
+                  : "border border-green-200 bg-white text-slate-700 hover:border-green-300 hover:bg-green-50 hover:text-green-700"
+              }`}
+            >
+              All
+            </button>
 
-          <button
-            type="button"
-            className="whitespace-nowrap rounded-full border border-green-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-green-300 hover:bg-green-50 hover:text-green-700"
-          >
-            Staples
-          </button>
-
-          <button
-            type="button"
-            className="whitespace-nowrap rounded-full border border-green-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-green-300 hover:bg-green-50 hover:text-green-700"
-          >
-            Groceries
-          </button>
-
-          <button
-            type="button"
-            className="whitespace-nowrap rounded-full border border-green-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-green-300 hover:bg-green-50 hover:text-green-700"
-          >
-            Beverages
-          </button>
+            {categories.map((category) => (
+              <button
+                key={category.categoryId}
+                type="button"
+                onClick={() => setSelectedCategory(category.categoryId)}
+                className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition ${
+                  selectedCategory === category.categoryId
+                    ? "bg-green-700 text-white hover:bg-green-800"
+                    : "border border-green-200 bg-white text-slate-700 hover:border-green-300 hover:bg-green-50 hover:text-green-700"
+                }`}
+              >
+                {category.name}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Product count */}
-      <div className="mb-5 flex items-center justify-between">
-        <p className="text-sm text-slate-500">
-          Showing{" "}
-          <span className="font-semibold text-slate-700">
-            {filteredProducts.length}
-          </span>{" "}
-          {filteredProducts.length === 1 ? "product" : "products"}
-        </p>
-      </div>
+      {!isLoading && !error && (
+        <div className="mb-5 flex items-center justify-between">
+          <p className="text-sm text-slate-500">
+            Showing <span className="font-semibold text-slate-700">{products.length}</span>{" "}
+            {products.length === 1 ? "product" : "products"}
+          </p>
+        </div>
+      )}
 
       {/* Product results */}
-      {filteredProducts.length > 0 ? (
+      {isLoading ? (
+        <ProductGridSkeleton count={12} />
+      ) : error ? (
+        <ErrorState message={error} onRetry={refetch} />
+      ) : products.length > 0 ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {filteredProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-            />
+          {products.map((product) => (
+            <ProductCard key={product.productId} product={product} />
           ))}
         </div>
       ) : (
-        <div className="rounded-3xl border border-green-100 bg-green-50/60 px-6 py-12 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-            <Search
-              size={24}
-              className="text-green-700"
-              aria-hidden="true"
-            />
-          </div>
-
-          <h3 className="mt-5 text-lg font-bold text-green-950">
-            No products found
-          </h3>
-
-          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-            We couldn&apos;t find any products matching{" "}
-            <span className="font-semibold text-slate-800">
-              &quot;{searchQuery}&quot;
-            </span>
-            . Try searching with another product name.
-          </p>
-        </div>
+        <EmptyState
+          icon={Search}
+          title="No products found"
+          description={
+            searchInput
+              ? `We couldn't find any products matching "${searchInput}". Try searching with another product name.`
+              : "No products are available in this category yet."
+          }
+        />
       )}
     </>
   );
 }
-
