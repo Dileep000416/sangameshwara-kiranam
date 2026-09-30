@@ -1,81 +1,13 @@
-import Link from "next/link";
-import {
-  Baby,
-  Beef,
-  Coffee,
-  Droplets,
-  House,
-  Milk,
-  Package,
-  ShieldCheck,
-  Sparkles,
-  Wheat,
-} from "lucide-react";
+"use client";
 
-const categories = [
-  {
-    name: "Rice & Atta",
-    description: "Rice, flour & staples",
-    icon: Wheat,
-    href: "/categories",
-  },
-  {
-    name: "Dal & Pulses",
-    description: "Everyday dals & pulses",
-    icon: Package,
-    href: "/categories",
-  },
-  {
-    name: "Oil & Ghee",
-    description: "Cooking oils & ghee",
-    icon: Droplets,
-    href: "/categories",
-  },
-  {
-    name: "Salt & Spices",
-    description: "Salt, spices & masalas",
-    icon: Sparkles,
-    href: "/categories",
-  },
-  {
-    name: "Tea & Coffee",
-    description: "Tea, coffee & drinks",
-    icon: Coffee,
-    href: "/categories",
-  },
-  {
-    name: "Dairy & Breakfast",
-    description: "Breakfast essentials",
-    icon: Milk,
-    href: "/categories",
-  },
-  {
-    name: "Snacks & Biscuits",
-    description: "Snacks & bakery items",
-    icon: Beef,
-    href: "/categories",
-  },
-  {
-    name: "Household",
-    description: "Cleaning & home needs",
-    icon: House,
-    href: "/categories",
-  },
-  {
-    name: "Personal Care",
-    description: "Daily care essentials",
-    icon: ShieldCheck,
-    href: "/categories",
-  },
-  {
-    name: "Baby Care",
-    description: "Baby essentials",
-    icon: Baby,
-    href: "/categories",
-  },
-];
+import Link from "next/link";
+import { Package } from "lucide-react";
+import { useCategories } from "@/hooks/useCategories";
+import { CategoryCardSkeleton } from "@/components/ui/Skeletons";
 
 export default function Categories() {
+  const { categories, isLoading, error } = useCategories();
+
   return (
     <section className="bg-white px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
       <div className="mx-auto max-w-7xl">
@@ -106,42 +38,35 @@ export default function Categories() {
           </Link>
         </div>
 
-        {/* Category strip */}
-        <div className="relative">
-          <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-none sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible lg:grid-cols-5">
-            {categories.map((category) => {
-              const Icon = category.icon;
+        {error ? (
+          <p className="text-sm text-red-600">{error}</p>
+        ) : (
+          <div className="relative">
+            <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-none sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible lg:grid-cols-5">
+              {isLoading
+                ? Array.from({ length: 10 }).map((_, i) => <CategoryCardSkeleton key={i} />)
+                : categories.slice(0, 10).map((category) => (
+                    <Link
+                      key={category.categoryId}
+                      href={`/products?category=${encodeURIComponent(category.categoryId)}`}
+                      className="group min-w-[180px] rounded-2xl border border-green-100 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-green-300 hover:shadow-md sm:min-w-0"
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-950 text-white transition duration-200 group-hover:bg-green-800">
+                        <Package size={24} strokeWidth={1.8} aria-hidden="true" />
+                      </div>
 
-              return (
-                <Link
-                  key={category.name}
-                  href={category.href}
-                  className="group min-w-[180px] rounded-2xl border border-green-100 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-green-300 hover:shadow-md sm:min-w-0"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-950 text-white transition duration-200 group-hover:bg-green-800">
-                    <Icon
-                      size={24}
-                      strokeWidth={1.8}
-                      aria-hidden="true"
-                    />
-                  </div>
+                      <h3 className="mt-4 text-sm font-bold text-green-950">{category.name}</h3>
 
-                  <h3 className="mt-4 text-sm font-bold text-green-950">
-                    {category.name}
-                  </h3>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">{category.parentGroup}</p>
 
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    {category.description}
-                  </p>
-
-                  <div className="mt-3 text-xs font-semibold text-green-700 transition group-hover:text-green-950">
-                    Explore →
-                  </div>
-                </Link>
-              );
-            })}
+                      <div className="mt-3 text-xs font-semibold text-green-700 transition group-hover:text-green-950">
+                        Explore →
+                      </div>
+                    </Link>
+                  ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Mobile view-all */}
         <Link

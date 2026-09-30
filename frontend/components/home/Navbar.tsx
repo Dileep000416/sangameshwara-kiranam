@@ -1,15 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
-  ChevronDown,
+  LayoutDashboard,
+  LogOut,
   Menu,
   Search,
   ShoppingCart,
   UserRound,
   X,
 } from "lucide-react";
+import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 
 const navigationLinks = [
   { name: "Home", href: "/" },
@@ -22,6 +26,17 @@ const navigationLinks = [
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const router = useRouter();
+  const { cartCount } = useCart();
+  const { isAuthenticated, isAdmin, logout } = useAuth();
+
+  function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = searchValue.trim();
+    router.push(query ? `/products?search=${encodeURIComponent(query)}` : "/products");
+    setMobileMenuOpen(false);
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white shadow-sm">
@@ -88,20 +103,17 @@ export default function Navbar() {
               </div>
             </Link>
 
-            {/* Desktop category button */}
-            <button
-              type="button"
+            {/* Desktop categories link */}
+            <Link
+              href="/categories"
               className="ml-4 hidden h-11 shrink-0 items-center gap-2 rounded-xl bg-green-700 px-4 text-sm font-semibold text-white transition hover:bg-green-600 lg:flex"
             >
               <Menu size={18} aria-hidden="true" />
-
               <span>Browse Categories</span>
-
-              <ChevronDown size={16} aria-hidden="true" />
-            </button>
+            </Link>
 
             {/* Search */}
-            <div className="ml-auto hidden min-w-0 flex-1 max-w-2xl lg:block">
+            <form onSubmit={handleSearchSubmit} className="ml-auto hidden min-w-0 flex-1 max-w-2xl lg:block">
               <label htmlFor="desktop-product-search" className="sr-only">
                 Search products
               </label>
@@ -116,21 +128,44 @@ export default function Navbar() {
                 <input
                   id="desktop-product-search"
                   type="search"
+                  value={searchValue}
+                  onChange={(event) => setSearchValue(event.target.value)}
                   placeholder="Search for rice, atta, tea and more..."
                   className="h-11 w-full rounded-xl border border-green-100 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-400 focus:ring-4 focus:ring-green-300/20"
                 />
               </div>
-            </div>
+            </form>
+
+            {/* Desktop admin link */}
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="hidden shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-white transition hover:bg-green-800 lg:flex"
+              >
+                <LayoutDashboard size={19} aria-hidden="true" />
+                <span>Admin</span>
+              </Link>
+            )}
 
             {/* Desktop account */}
-            <Link
-              href="/login"
-              className="hidden shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-white transition hover:bg-green-800 lg:flex"
-            >
-              <UserRound size={19} aria-hidden="true" />
-
-              <span>Login</span>
-            </Link>
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={logout}
+                className="hidden shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-white transition hover:bg-green-800 lg:flex"
+              >
+                <LogOut size={19} aria-hidden="true" />
+                <span>Logout</span>
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                className="hidden shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-white transition hover:bg-green-800 lg:flex"
+              >
+                <UserRound size={19} aria-hidden="true" />
+                <span>Login</span>
+              </Link>
+            )}
 
             {/* Cart */}
             <Link
@@ -145,13 +180,13 @@ export default function Navbar() {
               </span>
 
               <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-green-900">
-                0
+                {cartCount}
               </span>
             </Link>
           </div>
 
           {/* Mobile search */}
-          <div className="pb-3 lg:hidden">
+          <form onSubmit={handleSearchSubmit} className="pb-3 lg:hidden">
             <label htmlFor="mobile-product-search" className="sr-only">
               Search products
             </label>
@@ -166,11 +201,13 @@ export default function Navbar() {
               <input
                 id="mobile-product-search"
                 type="search"
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
                 placeholder="Search products..."
                 className="h-11 w-full rounded-xl border border-green-100 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-400 focus:ring-4 focus:ring-green-300/20"
               />
             </div>
-          </div>
+          </form>
         </div>
       </div>
 
@@ -193,14 +230,39 @@ export default function Navbar() {
                 </Link>
               ))}
 
-              <Link
-                href="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="mt-2 flex min-h-11 items-center gap-2 rounded-xl bg-green-800 px-3 text-sm font-semibold text-white transition hover:bg-green-700"
-              >
-                <UserRound size={18} aria-hidden="true" />
-                Login / Register
-              </Link>
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-green-950 transition hover:bg-green-50 hover:text-green-700"
+                >
+                  <LayoutDashboard size={18} aria-hidden="true" />
+                  Admin dashboard
+                </Link>
+              )}
+
+              {isAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="mt-2 flex min-h-11 w-full items-center gap-2 rounded-xl bg-green-800 px-3 text-sm font-semibold text-white transition hover:bg-green-700"
+                >
+                  <LogOut size={18} aria-hidden="true" />
+                  Logout
+                </button>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="mt-2 flex min-h-11 items-center gap-2 rounded-xl bg-green-800 px-3 text-sm font-semibold text-white transition hover:bg-green-700"
+                >
+                  <UserRound size={18} aria-hidden="true" />
+                  Login / Register
+                </Link>
+              )}
             </div>
           </nav>
         </div>

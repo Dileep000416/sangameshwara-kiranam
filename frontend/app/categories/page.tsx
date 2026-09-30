@@ -1,72 +1,27 @@
-import {
-  Apple,
-  Coffee,
-  CookingPot,
-  Droplets,
-  House,
-  Milk,
-  Package,
-  ShoppingBasket,
-  Sparkles,
-} from "lucide-react";
+"use client";
 
-const categories = [
-  {
-    name: "Staples",
-    description: "Rice, atta, dal, flour and everyday kitchen essentials.",
-    icon: ShoppingBasket,
-  },
-  {
-    name: "Groceries",
-    description: "Essential grocery products for your regular shopping.",
-    icon: Package,
-  },
-  {
-    name: "Beverages",
-    description: "Tea, coffee, drinks and refreshing everyday beverages.",
-    icon: Coffee,
-  },
-  {
-    name: "Snacks",
-    description: "Biscuits, chips and snacks for every occasion.",
-    icon: Apple,
-  },
-  {
-    name: "Household",
-    description: "Useful products for cleaning and everyday household needs.",
-    icon: House,
-  },
-  {
-    name: "Personal Care",
-    description: "Daily personal-care and hygiene essentials.",
-    icon: Sparkles,
-  },
-  {
-    name: "Dairy",
-    description: "Everyday dairy products and related essentials.",
-    icon: Milk,
-  },
-  {
-    name: "Cooking Essentials",
-    description: "Cooking oils, spices and kitchen essentials.",
-    icon: CookingPot,
-  },
-  {
-    name: "Other Essentials",
-    description: "More useful products for your everyday needs.",
-    icon: Droplets,
-  },
-];
-
-export const metadata = {
-  title: "Categories | Sangameshwara Kiranam & General Store",
-  description:
-    "Explore grocery, household, personal care, beverages, snacks and other product categories at Sangameshwara Kiranam & General Store.",
-};
+import Link from "next/link";
+import { Package } from "lucide-react";
+import Navbar from "@/components/home/Navbar";
+import { useCategories } from "@/hooks/useCategories";
+import { CategoryCardSkeleton } from "@/components/ui/Skeletons";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function CategoriesPage() {
+  const { categories, isLoading, error } = useCategories();
+
+  // Group categories by their top-level parentGroup (e.g. "Fruits & Vegetables")
+  // for a KPN Fresh-style grouped browsing experience.
+  const grouped = categories.reduce<Record<string, typeof categories>>((acc, category) => {
+    (acc[category.parentGroup] ??= []).push(category);
+    return acc;
+  }, {});
+
   return (
     <main className="bg-white">
+      <Navbar />
+
       {/* Hero */}
       <section className="bg-gradient-to-br from-green-50 via-white to-emerald-50 px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
         <div className="mx-auto max-w-5xl text-center">
@@ -92,44 +47,45 @@ export default function CategoriesPage() {
       {/* Categories */}
       <section className="px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-10">
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-green-700">
-              Categories
-            </p>
+          {isLoading ? (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <CategoryCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : error ? (
+            <ErrorState message={error} />
+          ) : categories.length === 0 ? (
+            <EmptyState icon={Package} title="No categories yet" description="Categories will appear here once the admin adds them." />
+          ) : (
+            Object.entries(grouped).map(([group, groupCategories]) => (
+              <div key={group} className="mb-12">
+                <h2 className="mb-5 text-2xl font-bold tracking-tight text-green-950">{group}</h2>
 
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-green-950 sm:text-4xl">
-              Shop everyday essentials
-            </h2>
-          </div>
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {groupCategories.map((category) => (
+                    <Link
+                      key={category.categoryId}
+                      href={`/products?category=${encodeURIComponent(category.categoryId)}`}
+                      className="group rounded-3xl border border-green-100 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-green-200 hover:shadow-lg"
+                    >
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-700 transition-colors duration-300 group-hover:bg-green-700 group-hover:text-white">
+                        <Package size={27} />
+                      </div>
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {categories.map((category) => {
-              const Icon = category.icon;
+                      <h3 className="mt-6 text-xl font-bold text-green-950">{category.name}</h3>
 
-              return (
-                <article
-                  key={category.name}
-                  className="group rounded-3xl border border-green-100 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-green-200 hover:shadow-lg"
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-700 transition-colors duration-300 group-hover:bg-green-700 group-hover:text-white">
-                    <Icon size={27} />
-                  </div>
+                      {category.description && (
+                        <p className="mt-3 text-sm leading-6 text-slate-600">{category.description}</p>
+                      )}
 
-                  <h3 className="mt-6 text-xl font-bold text-green-950">
-                    {category.name}
-                  </h3>
-
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {category.description}
-                  </p>
-
-                  <div className="mt-5 text-sm font-semibold text-green-700">
-                    Explore category →
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                      <div className="mt-5 text-sm font-semibold text-green-700">Explore category →</div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </section>
 
@@ -143,6 +99,13 @@ export default function CategoriesPage() {
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-green-100 sm:text-base">
             Browse our products and find the everyday essentials you need.
           </p>
+
+          <Link
+            href="/products"
+            className="mt-6 inline-flex rounded-xl bg-white px-6 py-3 text-sm font-bold text-green-950 transition hover:bg-green-50"
+          >
+            Browse all products
+          </Link>
         </div>
       </section>
     </main>

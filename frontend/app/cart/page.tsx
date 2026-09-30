@@ -4,10 +4,11 @@ import Link from "next/link";
 import { ArrowLeft, ShoppingCart } from "lucide-react";
 import CartItem from "@/components/cart/CartItem";
 import CartSummary from "@/components/cart/CartSummary";
+import { CartItemSkeleton } from "@/components/ui/Skeletons";
 import { useCart } from "@/context/CartContext";
 
 export default function CartPage() {
-  const { cartItems, cartCount } = useCart();
+  const { cartItems, cartCount, isLoading } = useCart();
 
   return (
     <main className="min-h-screen bg-white">
@@ -50,7 +51,16 @@ export default function CartPage() {
       {/* Cart content */}
       <section className="px-4 py-10 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
         <div className="mx-auto max-w-7xl">
-          {cartItems.length === 0 ? (
+          {isLoading ? (
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+              <div className="space-y-4">
+                <CartItemSkeleton />
+                <CartItemSkeleton />
+                <CartItemSkeleton />
+              </div>
+              <div className="h-96 animate-pulse rounded-3xl bg-green-50" />
+            </div>
+          ) : cartItems.length === 0 ? (
             /* Empty cart */
             <div className="mx-auto max-w-2xl rounded-3xl border border-green-100 bg-green-50/60 px-6 py-14 text-center sm:px-10">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-800">
@@ -91,7 +101,7 @@ export default function CartPage() {
                 <div className="space-y-4">
                   {cartItems.map((item) => (
                     <CartItem
-                      key={item.id}
+                      key={item.productId}
                       item={item}
                     />
                   ))}
