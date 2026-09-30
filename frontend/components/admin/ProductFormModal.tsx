@@ -174,7 +174,7 @@ export function ProductFormModal({ product, categories, onClose, onSaved }: Prod
                 required
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
               >
                 {categories.map((c) => (
                   <option key={c.categoryId} value={c.categoryId}>

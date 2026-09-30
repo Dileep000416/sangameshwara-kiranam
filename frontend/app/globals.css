@@ -12,15 +12,32 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/*
+ * This is an always-light storefront/admin theme. We intentionally do NOT
+ * switch to a dark palette based on the OS `prefers-color-scheme`, because
+ * the UI is designed around white surfaces with dark text. Honoring dark
+ * mode here caused form inputs (which inherit the foreground color) to show
+ * near-white text on white backgrounds — effectively invisible.
+ */
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/*
+ * Belt-and-suspenders: force all form controls to use dark, readable text
+ * and a white field background regardless of browser/OS defaults, so an
+ * input's text is never light-on-light even if a color isn't set inline.
+ */
+input,
+textarea,
+select {
+  color: #0f172a; /* slate-900 */
+  background-color: #ffffff;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8; /* slate-400 */
 }
