@@ -139,6 +139,25 @@ class ApiClient {
     });
   }
 
+  /**
+   * Guest checkout — no authentication. The cart (which lives only in the
+   * browser) is sent in the body as productId + quantity pairs; the backend
+   * re-reads prices/stock from DynamoDB, so nothing here can be trusted to
+   * set its own price.
+   */
+  createGuestOrder(body: {
+    name: string;
+    mobileNumber: string;
+    address: string;
+    landmark?: string;
+    items: Array<{ productId: string; quantity: number }>;
+  }) {
+    return this.request<{ order: Order; whatsappUrl: string | null }>("/guest-orders", {
+      method: "POST",
+      body,
+    });
+  }
+
   listMyOrders() {
     return this.request<{ items: Order[] }>("/orders", { auth: true });
   }

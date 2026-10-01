@@ -103,6 +103,7 @@ export class ApiStack extends Stack {
     const updateCartItemFn = makeFn("UpdateCartItemFn", "functions/cart/handler.ts", "updateCartItem");
     const removeFromCartFn = makeFn("RemoveFromCartFn", "functions/cart/handler.ts", "removeFromCart");
     const createOrderFn = makeFn("CreateOrderFn", "functions/orders/create.ts");
+    const createGuestOrderFn = makeFn("CreateGuestOrderFn", "functions/orders/create-guest.ts");
     const listMyOrdersFn = makeFn("ListMyOrdersFn", "functions/orders/list.ts", "listMyOrders");
     const getMyOrderFn = makeFn("GetMyOrderFn", "functions/orders/list.ts", "getMyOrder");
 
@@ -141,6 +142,12 @@ export class ApiStack extends Stack {
     cartsTable.grantReadWriteData(createOrderFn);
     productsTable.grantReadWriteData(createOrderFn);
     ordersTable.grantReadWriteData(createOrderFn);
+
+    // Guest checkout: reads products (price/stock), writes products (stock
+    // decrement) and orders. No cart table access — guests send their cart
+    // in the request body.
+    productsTable.grantReadWriteData(createGuestOrderFn);
+    ordersTable.grantReadWriteData(createGuestOrderFn);
     ordersTable.grantReadData(listMyOrdersFn);
     ordersTable.grantReadData(getMyOrderFn);
 
@@ -216,6 +223,7 @@ export class ApiStack extends Stack {
     addRoute("/cart", [apigwv2.HttpMethod.POST], addToCartFn, true);
     addRoute("/cart/{productId}", [apigwv2.HttpMethod.PUT], updateCartItemFn, true);
     addRoute("/cart/{productId}", [apigwv2.HttpMethod.DELETE], removeFromCartFn, true);
+    addRoute("/guest-orders", [apigwv2.HttpMethod.POST], createGuestOrderFn, false);
     addRoute("/orders", [apigwv2.HttpMethod.POST], createOrderFn, true);
     addRoute("/orders", [apigwv2.HttpMethod.GET], listMyOrdersFn, true);
     addRoute("/orders/{orderId}", [apigwv2.HttpMethod.GET], getMyOrderFn, true);

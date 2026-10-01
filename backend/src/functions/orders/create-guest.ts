@@ -1,85 +1,94 @@
-import type {
-  APIGatewayProxyEventV2WithJWTAuthorizer,
-  APIGatewayProxyStructuredResultV2,
-} from "aws-lambda";
-import { GetCommand, PutCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
+import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
+import { GetCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
 import { ddb, TableNames } from "@common/dynamo";
-import { getUserId } from "@common/auth";
 import { fail, handleError, ok, parseBody } from "@common/http";
-import { requireIndianMobile, requireString, optionalString } from "@common/validation";
+import { requireIndianMobile, requireNumber, requireString, optionalString } from "@common/validation";
 import { buildWhatsAppMessage, buildWhatsAppUrl, computeOrderTotals, generateOrderId } from "@common/order-utils";
-import type { CartRecord, OrderItemRecord, OrderRecord, ProductRecord } from "@common/types";
+import type { OrderItemRecord, OrderRecord, ProductRecord } from "@common/types";
 
-interface CreateOrderRequest {
+interface GuestCartItemInput {
+  productId: string;
+  quantity: number;
+}
+
+interface CreateGuestOrderRequest {
   name: string;
   mobileNumber: string;
   address: string;
   landmark?: string;
+  items: GuestCartItemInput[];
 }
 
 /**
- * POST /orders
+ * POST /guest-orders  (PUBLIC — no authentication)
  *
- * Business-critical flow (see spec sections 17, 18, 25, 39):
- *   1. Load the customer's server-side cart (never trust a cart sent by the client).
- *   2. Re-read every product's current price and stock from DynamoDB.
- *   3. Reject the order if the cart is empty or any item is out of stock.
- *   4. Atomically decrement stock for every item using a DynamoDB transaction
- *      with a condition (stockQuantity >= quantity), so concurrent checkouts
- *      for the last unit of a product cannot oversell it.
- *   5. Persist the order (status = CREATED) before generating the WhatsApp
- *      redirect, so the order always exists even if the redirect fails.
- *   6. Clear the customer's cart.
+ * Guest checkout for a WhatsApp-order grocery store (no customer login/OTP).
+ * The customer's cart lives only in their browser (localStorage) and is sent
+ * in the request body as a list of { productId, quantity }.
+ *
+ * Security note: although this endpoint is unauthenticated, it still NEVER
+ * trusts any price, name, or total from the client. For every line it
+ * re-reads the authoritative price and live stock from DynamoDB, and it
+ * decrements stock atomically (same TransactWrite + condition as the
+ * authenticated order path), so a guest cannot oversell stock or manipulate
+ * pricing. The only client-provided values used verbatim are the contact
+ * details (name/mobile/address), which the admin re-confirms over WhatsApp
+ * anyway.
  */
 export async function handler(
-  event: APIGatewayProxyEventV2WithJWTAuthorizer
+  event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyStructuredResultV2> {
   try {
-    const userId = getUserId(event);
-
-    const body = parseBody<CreateOrderRequest>(event);
+    const body = parseBody<CreateGuestOrderRequest>(event);
     const name = requireString(body.name, "name", { maxLength: 120 });
     const mobileNumber = requireIndianMobile(body.mobileNumber);
     const address = requireString(body.address, "address", { maxLength: 300 });
     const landmark = optionalString(body.landmark, "landmark", { maxLength: 120 });
 
-    const cartResponse = await ddb.send(
-      new GetCommand({ TableName: TableNames.CARTS, Key: { userId } })
-    );
-    const cart = cartResponse.Item as CartRecord | undefined;
-
-    if (!cart || cart.items.length === 0) {
+    if (!Array.isArray(body.items) || body.items.length === 0) {
       return fail(400, "Your cart is empty.");
     }
+    if (body.items.length > 100) {
+      return fail(400, "Too many items in the cart.");
+    }
 
-    // Re-validate every product's live price + stock. This is the single
-    // source of truth for the order total — frontend-submitted totals are
-    // never used.
+    // Normalize + validate the incoming cart lines. Collapse duplicate
+    // productIds so a repeated line can't bypass the per-product stock check.
+    const quantityByProduct = new Map<string, number>();
+    for (const raw of body.items) {
+      const productId = requireString(raw.productId, "items[].productId");
+      const quantity = requireNumber(raw.quantity, "items[].quantity", { min: 1, max: 99 });
+      quantityByProduct.set(productId, (quantityByProduct.get(productId) ?? 0) + quantity);
+    }
+
     const orderItems: OrderItemRecord[] = [];
     const willBeOutOfStock = new Map<string, boolean>();
-    for (const cartItem of cart.items) {
+    for (const [productId, quantity] of quantityByProduct) {
       const productResponse = await ddb.send(
-        new GetCommand({ TableName: TableNames.PRODUCTS, Key: { productId: cartItem.productId } })
+        new GetCommand({ TableName: TableNames.PRODUCTS, Key: { productId } })
       );
       const product = productResponse.Item as ProductRecord | undefined;
 
       if (!product || !product.active) {
-        return fail(409, `${cartItem.productName} is no longer available.`);
+        return fail(409, "One or more items are no longer available. Please review your cart.");
       }
-      if (!product.inStock || product.stockQuantity < cartItem.quantity) {
+      if (!product.inStock || product.stockQuantity < quantity) {
         return fail(409, `${product.productName} is currently out of stock.`);
       }
 
-      willBeOutOfStock.set(product.productId, product.stockQuantity - cartItem.quantity <= 0);
+      // Will the product hit zero stock after this order? Used to set the
+      // derived inStock flag. The authoritative oversell guard is the
+      // ConditionExpression (stockQuantity >= :qty) in the transaction below.
+      willBeOutOfStock.set(productId, product.stockQuantity - quantity <= 0);
 
       orderItems.push({
         productId: product.productId,
         productName: product.productName,
         unit: product.unit,
         price: product.price,
-        quantity: cartItem.quantity,
-        total: product.price * cartItem.quantity,
+        quantity,
+        total: product.price * quantity,
       });
     }
 
@@ -89,7 +98,7 @@ export async function handler(
 
     const order: OrderRecord = {
       orderId,
-      customerId: userId,
+      customerId: "GUEST",
       customerName: name,
       mobileNumber,
       address,
@@ -106,10 +115,6 @@ export async function handler(
     order.whatsappMessage = buildWhatsAppMessage(order);
 
     try {
-      // Atomically decrement stock for every item and persist the order in a
-      // single all-or-nothing transaction. If any product's stock changed
-      // concurrently and no longer satisfies the condition, the whole
-      // transaction is rejected and no stock is touched.
       await ddb.send(
         new TransactWriteCommand({
           TransactItems: [
@@ -143,14 +148,6 @@ export async function handler(
       throw err;
     }
 
-    // Order is durably stored — clear the cart, then hand back the WhatsApp URL.
-    await ddb.send(
-      new PutCommand({
-        TableName: TableNames.CARTS,
-        Item: { userId, items: [], updatedAt: now } as CartRecord,
-      })
-    );
-
     let whatsappUrl: string | null = null;
     try {
       whatsappUrl = buildWhatsAppUrl(order.whatsappMessage);
@@ -158,13 +155,7 @@ export async function handler(
       console.error("Failed to build WhatsApp URL:", err);
     }
 
-    return ok(
-      {
-        order,
-        whatsappUrl,
-      },
-      201
-    );
+    return ok({ order, whatsappUrl }, 201);
   } catch (err) {
     return handleError(err);
   }
