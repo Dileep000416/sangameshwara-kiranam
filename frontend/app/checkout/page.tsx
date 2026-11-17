@@ -1,46 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, MessageCircle, ShoppingBag } from "lucide-react";
 import Navbar from "@/components/home/Navbar";
-import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
-import { useToast } from "@/context/ToastContext";
 import { api, ApiRequestError } from "@/lib/api";
 
 const FREE_DELIVERY_THRESHOLD = 500;
 const DELIVERY_FEE = 30;
 
 /**
- * Checkout flow (spec sections 16-17, 40):
- *   1. Collect/confirm customer contact + delivery details.
- *   2. Submit -> backend re-validates stock/prices, persists the order in
+ * Guest checkout flow (no customer login — spec sections 16-17, 40):
+ *   1. Collect customer contact + delivery details.
+ *   2. Submit the browser cart to the public /guest-orders endpoint, which
+ *      re-validates stock/prices server-side, persists the order in
  *      DynamoDB, and returns a ready-to-use WhatsApp deep link.
- *   3. Redirect to WhatsApp. If the redirect fails for any reason (popup
- *      blocked, etc.), the order is already saved — we show the order ID
- *      and an "Open WhatsApp" button so nothing is lost.
+ *   3. Redirect to WhatsApp. If the redirect fails (popup blocked, etc.),
+ *      the order is already saved — we show the order ID and an "Open
+ *      WhatsApp" button so nothing is lost.
  */
 export default function CheckoutPage() {
-  const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading, mobileNumber } = useAuth();
-  const { cartItems, cartTotal, isLoading: cartLoading, refresh } = useCart();
-  const { showToast } = useToast();
+  const { cartItems, cartTotal, isLoading: cartLoading, clearCart } = useCart();
 
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState(mobileNumber?.replace("+91", "") ?? "");
+  const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [landmark, setLandmark] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ orderId: string; whatsappUrl: string | null } | null>(null);
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push("/login?redirect=/checkout");
-    }
-  }, [authLoading, isAuthenticated, router]);
 
   const deliveryFee = cartTotal === 0 ? 0 : cartTotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
   const estimatedTotal = cartTotal + deliveryFee;
@@ -59,15 +48,16 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await api.createOrder({
+      const response = await api.createGuestOrder({
         name: name.trim(),
         mobileNumber: mobile,
         address: address.trim(),
         landmark: landmark.trim() || undefined,
+        items: cartItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
       });
 
       setResult({ orderId: response.order.orderId, whatsappUrl: response.whatsappUrl });
-      await refresh();
+      await clearCart();
 
       if (response.whatsappUrl) {
         window.open(response.whatsappUrl, "_blank", "noopener,noreferrer");

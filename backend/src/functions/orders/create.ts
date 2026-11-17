@@ -57,6 +57,7 @@ export async function handler(
     // source of truth for the order total — frontend-submitted totals are
     // never used.
     const orderItems: OrderItemRecord[] = [];
+    const willBeOutOfStock = new Map<string, boolean>();
     for (const cartItem of cart.items) {
       const productResponse = await ddb.send(
         new GetCommand({ TableName: TableNames.PRODUCTS, Key: { productId: cartItem.productId } })
@@ -69,6 +70,8 @@ export async function handler(
       if (!product.inStock || product.stockQuantity < cartItem.quantity) {
         return fail(409, `${product.productName} is currently out of stock.`);
       }
+
+      willBeOutOfStock.set(product.productId, product.stockQuantity - cartItem.quantity <= 0);
 
       orderItems.push({
         productId: product.productId,
@@ -114,13 +117,12 @@ export async function handler(
               Update: {
                 TableName: TableNames.PRODUCTS,
                 Key: { productId: item.productId },
-                UpdateExpression:
-                  "SET stockQuantity = stockQuantity - :qty, inStock = (stockQuantity - :qty) > :zero",
+                UpdateExpression: "SET stockQuantity = stockQuantity - :qty, inStock = :inStock",
                 ConditionExpression: "active = :true AND stockQuantity >= :qty",
                 ExpressionAttributeValues: {
                   ":qty": item.quantity,
-                  ":zero": 0,
                   ":true": true,
+                  ":inStock": !willBeOutOfStock.get(item.productId),
                 },
               },
             })),

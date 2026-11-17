@@ -110,6 +110,24 @@ export class AuthStack extends Stack {
       },
     });
 
+    // The PostConfirmation trigger adds each newly-confirmed customer to the
+    // CUSTOMERS group, which requires the AdminAddUserToGroup permission.
+    // Without it, every first-time customer sign-up fails with "not
+    // authorized to perform cognito-idp:AdminAddUserToGroup".
+    //
+    // We intentionally scope to a wildcard user-pool ARN in this account +
+    // region rather than this.userPool.userPoolArn. Referencing the pool's
+    // own ARN here would create a CloudFormation circular dependency (the
+    // pool depends on this Lambda as a trigger, and the Lambda's role would
+    // then depend on the pool). The wildcard still restricts the permission
+    // to Cognito user pools in only this account and region.
+    postConfirmationFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["cognito-idp:AdminAddUserToGroup"],
+        resources: [`arn:aws:cognito-idp:${this.region}:${this.account}:userpool/*`],
+      })
+    );
+
     this.userPoolClient = this.userPool.addClient("WebClient", {
       userPoolClientName: `sangameshwara-${envConfig.envName}-web`,
       authFlows: {

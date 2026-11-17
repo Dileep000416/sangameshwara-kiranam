@@ -120,7 +120,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         [new CognitoUserAttribute({ Name: "phone_number", Value: mobile })],
         [],
         (err) => {
-          if (err && err.name !== "UsernameExistsException") {
+          // "User already exists" is the expected, benign case for any
+          // returning user (e.g. the admin logging in again) — we only need
+          // the account to exist so CUSTOM_AUTH can start. The SDK surfaces
+          // this condition under different property names depending on
+          // version, so check all of them.
+          const code =
+            (err as { name?: string; code?: string; __type?: string } | null)?.name ??
+            (err as { code?: string } | null)?.code ??
+            (err as { __type?: string } | null)?.__type;
+
+          if (err && code !== "UsernameExistsException") {
             reject(err);
             return;
           }

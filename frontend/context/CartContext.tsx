@@ -10,31 +10,25 @@ import {
   type ReactNode,
 } from "react";
 
-import { api, ApiRequestError } from "@/lib/api";
-import { useAuth } from "@/context/AuthContext";
-import type { Cart, CartItem, Product } from "@/types";
+import type { CartItem, Product } from "@/types";
 
 const GUEST_CART_STORAGE_KEY = "sangameshwara.guestCart";
 
 /**
- * Cart state management (spec section 15).
+ * Cart state management for guest checkout (spec section 15).
  *
- * - Signed-in customers: the cart always lives in DynamoDB, fetched/mutated
- *   through the authenticated /cart API. This is the source of truth.
- * - Guests (not signed in): a temporary cart is kept in localStorage only,
- *   purely so browsing feels normal before login. On successful login, the
- *   guest cart is merged into the server-side cart item-by-item and then
- *   cleared from localStorage.
+ * This store uses a WhatsApp-order model with no customer login, so the cart
+ * lives entirely in the browser's localStorage. On checkout, the cart's
+ * { productId, quantity } pairs are POSTed to the public /guest-orders
+ * endpoint, which re-reads the authoritative price and stock from DynamoDB.
  *
  * Every price shown here is a client-side snapshot for display only — the
- * backend always re-reads the authoritative price from DynamoDB when an
- * order is created (see backend/src/functions/orders/create.ts).
+ * backend never trusts it (see backend/src/functions/orders/create-guest.ts).
  */
 
 interface CartContextType {
   cartItems: CartItem[];
   isLoading: boolean;
-  error: string | null;
   addToCart: (product: Product, quantity?: number) => Promise<void>;
   removeFromCart: (productId: string) => Promise<void>;
   increaseQuantity: (productId: string) => Promise<void>;
@@ -42,7 +36,6 @@ interface CartContextType {
   clearCart: () => Promise<void>;
   cartCount: number;
   cartTotal: number;
-  refresh: () => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -63,164 +56,101 @@ function writeGuestCart(items: CartItem[]) {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [hasMergedGuestCart, setHasMergedGuestCart] = useState(false);
 
-  const loadServerCart = useCallback(async () => {
-    try {
-      setError(null);
-      const cart = await api.getCart();
-      setCartItems(cart.items);
-    } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Unable to load your cart.");
-    } finally {
-      setIsLoading(false);
-    }
+  // Hydrate from localStorage once on mount (client only).
+  useEffect(() => {
+    setCartItems(readGuestCart());
+    setIsLoading(false);
   }, []);
 
-  useEffect(() => {
-    if (authLoading) return;
-
-    if (!isAuthenticated) {
-      setCartItems(readGuestCart());
-      setIsLoading(false);
-      return;
-    }
-
-    (async () => {
-      if (!hasMergedGuestCart) {
-        const guestItems = readGuestCart();
-        for (const item of guestItems) {
-          try {
-            await api.addToCart(item.productId, item.quantity);
-          } catch {
-            // Best-effort merge; skip items that fail (e.g. gone out of stock).
-          }
-        }
-        writeGuestCart([]);
-        setHasMergedGuestCart(true);
-      }
-      await loadServerCart();
-    })();
-  }, [isAuthenticated, authLoading, hasMergedGuestCart, loadServerCart]);
+  // Persist to localStorage whenever the cart changes.
+  const persist = useCallback((items: CartItem[]) => {
+    setCartItems(items);
+    writeGuestCart(items);
+  }, []);
 
   const addToCart = useCallback(
     async (product: Product, quantity = 1) => {
-      if (!isAuthenticated) {
-        setCartItems((current) => {
-          const existing = current.find((item) => item.productId === product.productId);
-          const next = existing
-            ? current.map((item) =>
-                item.productId === product.productId ? { ...item, quantity: item.quantity + quantity } : item
-              )
-            : [
-                ...current,
-                {
-                  productId: product.productId,
-                  productName: product.productName,
-                  unit: product.unit,
-                  price: product.price,
-                  imageUrl: product.imageUrl,
-                  quantity,
-                },
-              ];
-          writeGuestCart(next);
-          return next;
-        });
-        return;
-      }
-
-      try {
-        setError(null);
-        const cart: Cart = await api.addToCart(product.productId, quantity);
-        setCartItems(cart.items);
-      } catch (err) {
-        setError(err instanceof ApiRequestError ? err.message : "Unable to update cart.");
-        throw err;
-      }
+      setCartItems((current) => {
+        const existing = current.find((item) => item.productId === product.productId);
+        const next = existing
+          ? current.map((item) =>
+              item.productId === product.productId
+                ? { ...item, quantity: item.quantity + quantity }
+                : item
+            )
+          : [
+              ...current,
+              {
+                productId: product.productId,
+                productName: product.productName,
+                unit: product.unit,
+                price: product.price,
+                imageUrl: product.imageUrl,
+                quantity,
+              },
+            ];
+        writeGuestCart(next);
+        return next;
+      });
     },
-    [isAuthenticated]
+    []
   );
 
-  const setQuantity = useCallback(
-    async (productId: string, quantity: number) => {
-      if (!isAuthenticated) {
-        setCartItems((current) => {
-          const next =
-            quantity <= 0
-              ? current.filter((item) => item.productId !== productId)
-              : current.map((item) => (item.productId === productId ? { ...item, quantity } : item));
-          writeGuestCart(next);
-          return next;
-        });
-        return;
-      }
+  const setQuantity = useCallback((productId: string, quantity: number) => {
+    setCartItems((current) => {
+      const next =
+        quantity <= 0
+          ? current.filter((item) => item.productId !== productId)
+          : current.map((item) => (item.productId === productId ? { ...item, quantity } : item));
+      writeGuestCart(next);
+      return next;
+    });
+  }, []);
 
-      try {
-        setError(null);
-        const cart = await api.updateCartItem(productId, quantity);
-        setCartItems(cart.items);
-      } catch (err) {
-        setError(err instanceof ApiRequestError ? err.message : "Unable to update cart.");
-        throw err;
-      }
-    },
-    [isAuthenticated]
-  );
-
-  const removeFromCart = useCallback(
-    async (productId: string) => {
-      if (!isAuthenticated) {
-        setCartItems((current) => {
-          const next = current.filter((item) => item.productId !== productId);
-          writeGuestCart(next);
-          return next;
-        });
-        return;
-      }
-
-      try {
-        setError(null);
-        const cart = await api.removeFromCart(productId);
-        setCartItems(cart.items);
-      } catch (err) {
-        setError(err instanceof ApiRequestError ? err.message : "Unable to update cart.");
-        throw err;
-      }
-    },
-    [isAuthenticated]
-  );
+  const removeFromCart = useCallback(async (productId: string) => {
+    setCartItems((current) => {
+      const next = current.filter((item) => item.productId !== productId);
+      writeGuestCart(next);
+      return next;
+    });
+  }, []);
 
   const increaseQuantity = useCallback(
     async (productId: string) => {
-      const current = cartItems.find((item) => item.productId === productId);
-      await setQuantity(productId, (current?.quantity ?? 0) + 1);
+      setCartItems((current) => {
+        const item = current.find((i) => i.productId === productId);
+        const next = current.map((i) =>
+          i.productId === productId ? { ...i, quantity: (item?.quantity ?? 0) + 1 } : i
+        );
+        writeGuestCart(next);
+        return next;
+      });
     },
-    [cartItems, setQuantity]
+    []
   );
 
   const decreaseQuantity = useCallback(
     async (productId: string) => {
-      const current = cartItems.find((item) => item.productId === productId);
-      await setQuantity(productId, (current?.quantity ?? 1) - 1);
+      setCartItems((current) => {
+        const item = current.find((i) => i.productId === productId);
+        const nextQty = (item?.quantity ?? 1) - 1;
+        const next =
+          nextQty <= 0
+            ? current.filter((i) => i.productId !== productId)
+            : current.map((i) => (i.productId === productId ? { ...i, quantity: nextQty } : i));
+        writeGuestCart(next);
+        return next;
+      });
     },
-    [cartItems, setQuantity]
+    []
   );
 
   const clearCart = useCallback(async () => {
-    if (!isAuthenticated) {
-      setCartItems([]);
-      writeGuestCart([]);
-      return;
-    }
-
-    for (const item of cartItems) {
-      await removeFromCart(item.productId);
-    }
-  }, [isAuthenticated, cartItems, removeFromCart]);
+    persist([]);
+  }, [persist]);
 
   const cartCount = useMemo(() => cartItems.reduce((total, item) => total + item.quantity, 0), [cartItems]);
 
@@ -232,7 +162,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const value: CartContextType = {
     cartItems,
     isLoading,
-    error,
     addToCart,
     removeFromCart,
     increaseQuantity,
@@ -240,7 +169,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     clearCart,
     cartCount,
     cartTotal,
-    refresh: loadServerCart,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
